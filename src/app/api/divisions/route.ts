@@ -3,42 +3,69 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "../../../lib/prisma";
 
-// POST method handler for creating divisions
 export async function POST(req: NextRequest) {
   try {
-    const divisions = await req.json(); // Parse the incoming request body
-    console.log("divisions", divisions);
+    const divisions = await req.json();
 
-    // Validate if divisions array is not empty
-    if (!Array.isArray(divisions) || divisions.length === 0) {
+    if (!Array.isArray(divisions)) {
+      return NextResponse.json(
+        { message: "Invalid request format - expected array of divisions" },
+        { status: 400 }
+      );
+    }
+
+    if (divisions.length === 0) {
       return NextResponse.json(
         { message: "No divisions provided" },
         { status: 400 }
       );
     }
 
-    // Validate the structure of each division object
+    // Validate all divisions before insertion
     const invalidDivisions = divisions.filter(
-      (division) => !division.name || !division.numTeams
+      (division) =>
+        !division.name || !division.numTeams || !division.tournamentId
     );
 
     if (invalidDivisions.length > 0) {
       return NextResponse.json(
-        { message: "Some divisions have missing fields" },
+        {
+          message: "Some divisions have missing fields",
+          invalidCount: invalidDivisions.length,
+        },
         { status: 400 }
       );
     }
 
-    // Bulk insert divisions using createMany
-    const createdDivisions = await prisma.division.createMany({
-      data: divisions, // Bulk data
-    });
+    // Create divisions and return full objects with IDs
+    const createdDivisions = await prisma.$transaction(
+      divisions.map((division) =>
+        prisma.division.create({
+          data: {
+            name: division.name,
+            numTeams: division.numTeams,
+            tournamentId: division.tournamentId,
+          },
+        })
+      )
+    );
 
-    return NextResponse.json(createdDivisions, { status: 201 });
+    return NextResponse.json(
+      {
+        success: true,
+        count: createdDivisions.length,
+        divisions: createdDivisions,
+      },
+      { status: 201 }
+    );
   } catch (error) {
     console.error("Error creating divisions:", error);
     return NextResponse.json(
-      { message: "Internal Server Error" },
+      {
+        success: false,
+        message: "Internal Server Error",
+        error: error instanceof Error ? error.message : "Unknown error",
+      },
       { status: 500 }
     );
   }

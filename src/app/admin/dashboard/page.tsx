@@ -18,6 +18,7 @@ import TableChartIcon from "@mui/icons-material/TableChart";
 import CreateFixture from "../../../components/createFixture";
 import ShowFixture from "../../../components/showFixture";
 import Image from "next/image";
+import LogoutIcon from '@mui/icons-material/Logout';
 
 const drawerWidth = 260;
 
@@ -27,7 +28,7 @@ export default function Dashboard() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
 
   useEffect(() => {
-    const token = localStorage.getItem("token");
+    const token = localStorage?.getItem("token");
     if (!token) {
       // setIsAuthenticated(false);
       router.push("/admin/login");
@@ -81,11 +82,9 @@ export default function Dashboard() {
             flexDirection: "column",
             justifyContent: "space-between",
             background: "#D83030",
-            // borderRadius: "0px 8px 8px 0px",
+            borderRadius: "0px 4px 4px 0px",
             boxShadow:
               "rgba(0, 0, 0, 0.25) 0px 14px 28px, rgba(0, 0, 0, 0.22) 0px 10px 10px",
-            // boxShadow:
-            //   "rgba(255, 255, 255, 0.1) 0px 1px 1px 0px inset, rgba(50, 50, 93, 0.25) 0px 50px 100px -20px, rgba(0, 0, 0, 0.3) 0px 30px 60px -30px",
           },
         }}
         variant="permanent"
@@ -130,19 +129,28 @@ export default function Dashboard() {
                     sx={{
                       color: selectedIndex === index ? "#D83030" : "inherit",
                       transition: "background-color 0.3s ease",
+                      minWidth:"40px"
                     }}
                   >
                     {index === 0 ? <CreateIcon /> : <TableChartIcon />}
                   </ListItemIcon>
 
                   <ListItemText
-                    primary={text}
-                    sx={{
-                      fontWeight: selectedIndex === index ? "bold" : "normal",
-                      fontSize: "16px",
-                      color: selectedIndex === index ? "#D83030" : "inherit",
-                      transition: "background-color 0.3s ease",
-                    }}
+                    primary={
+                      <Typography
+                        variant="body1"
+                        sx={{
+                          fontWeight: "bold",
+                          fontSize: "16px",
+                          color:
+                            selectedIndex === index ? "#D83030" : "inherit",
+                          display: "block",
+                          transition: "color 0.3s ease",
+                        }}
+                      >
+                        {text}
+                      </Typography>
+                    }
                   />
                 </ListItemButton>
               </ListItem>
@@ -160,6 +168,7 @@ export default function Dashboard() {
             fontWeight: "bold",
             fontSize: "16px",
           }}
+          startIcon={<LogoutIcon />}
           onClick={handleLogout}
         >
           Logout

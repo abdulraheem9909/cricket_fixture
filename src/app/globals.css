@@ -1,8 +1,7 @@
 :root {
-  --background: #F5F5F5;
-  --foreground: #2D2D2D;
+  --background: #f5f5f5;
+  --foreground: #2d2d2d;
 }
-
 
 html,
 body {
@@ -31,6 +30,12 @@ a {
   text-decoration: none;
 }
 
+.css-3hpdci-MuiSvgIcon-root-MuiStepIcon-root.Mui-active {
+  color: #d83030 !important;
+}
+.css-3hpdci-MuiSvgIcon-root-MuiStepIcon-root.Mui-completed {
+  color: #d83030 !important;
+}
 @media (prefers-color-scheme: dark) {
   html {
     color-scheme: dark;

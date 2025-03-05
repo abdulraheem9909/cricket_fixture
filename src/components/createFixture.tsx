@@ -8,7 +8,6 @@ import {
   Stepper,
   Step,
   StepLabel,
-  MenuItem,
   Box,
   Card,
   CardContent,
@@ -32,11 +31,15 @@ export default function CreateFixture() {
   const [divisions, setDivisions] = useState<
     { name: string; numTeams: number }[]
   >([]);
-  const [teams, setTeams] = useState<
-    { name: string; homeGround: string; division: string }[]
+  const [createdDivisions, setCreatedDivisions] = useState<
+    { id: string; name: string; numTeams: number }[]
   >([]);
-  const [errors, setErrors] = useState({} as Record<string, string>);
+  const [teams, setTeams] = useState<
+    { name: string; homeGround: string; divisionId: string }[]
+  >([]);
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
+  // Validation functions
   const validateTournament = () => {
     const newErrors: Record<string, string> = {};
     if (!tournament.name.trim()) newErrors.name = "Tournament name is required";
@@ -48,91 +51,166 @@ export default function CreateFixture() {
 
   const validateDivisions = () => {
     const newErrors: Record<string, string> = {};
-    if (numDivisions <= 0) newErrors.numDivisions = "Enter at least 1 division";
-    divisions.forEach((division, index) => {
-      if (!division.name.trim()) newErrors[`div-${index}-name`] = "Required";
-      if (!division.numTeams || division.numTeams <= 0)
-        newErrors[`div-${index}-teams`] = "Must be greater than 0";
-    });
+
+    // Validate number of divisions
+    if (numDivisions <= 0) {
+      newErrors.numDivisions = "Enter at least 1 division";
+    }
+
+    // Validate divisions array matches numDivisions
+    if (divisions.length !== numDivisions) {
+      newErrors.general = "Division count mismatch - please refresh the form";
+      setErrors(newErrors);
+      return false;
+    }
+
+    // Validate each division
+    for (let index = 0; index < numDivisions; index++) {
+      const division = divisions[index];
+
+      if (!division) {
+        newErrors[`div-${index}-name`] = "Division configuration missing";
+        continue;
+      }
+
+      if (!division.name.trim()) {
+        newErrors[`div-${index}-name`] = "Division name required";
+      }
+
+      if (!division.numTeams || division.numTeams <= 0) {
+        newErrors[`div-${index}-teams`] = "Must have at least 1 team";
+      }
+    }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
   const validateTeams = () => {
     const newErrors: Record<string, string> = {};
-    teams.forEach((team, index) => {
-      if (!team.name.trim())
-        newErrors[`team-${index}-name`] = "Team name is required";
-      if (!team.homeGround.trim())
-        newErrors[`team-${index}-ground`] = "Home ground is required";
+
+    createdDivisions.forEach((division) => {
+      const divisionTeams = teams.filter((t) => t.divisionId === division.id);
+
+      divisionTeams.forEach((team, teamIndex) => {
+        if (!team.name.trim()) {
+          newErrors[`team-${division.id}-${teamIndex}-name`] =
+            "Team name required";
+        }
+        if (!team.homeGround.trim()) {
+          newErrors[`team-${division.id}-${teamIndex}-ground`] =
+            "Home ground required";
+        }
+      });
     });
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
+  // Step handlers
   const handleNext = () => {
-    if (activeStep === 0 && !validateTournament()) return;
-    if (activeStep === 1 && !validateDivisions()) return;
-    if (activeStep === 2 && !validateTeams()) return;
-    setActiveStep((prevStep) => prevStep + 1);
+    setActiveStep((prev) => prev + 1);
   };
 
-  const handleBack = () => setActiveStep((prevStep) => prevStep - 1);
+  const handleBack = () => setActiveStep((prev) => prev - 1);
+
+  // Submission handlers
   const handleTournamentSubmit = async () => {
-    // const response = await axios.post("/api/tournaments", {
-    //   ...tournament,
-    //   weeks: +tournament.weeks,
-    // });
-    // console.log("Tournament Created:", response.data);
+    if (activeStep === 0 && !validateTournament()) return;
     handleNext();
   };
 
   const handleDivisionSubmit = async () => {
+    if (activeStep === 1 && !validateDivisions()) return;
     try {
-      // Submit tournament creation request
+      // Create tournament
       const tournamentResponse = await axios.post("/api/tournaments", {
         ...tournament,
         weeks: +tournament.weeks,
       });
-      const tournamentId = tournamentResponse.data.id; // Assuming the response includes the `id`
 
-      console.log("Tournament Created:", tournamentResponse.data);
-
-      // Now submit the divisions with the tournamentId
+      // Create divisions
       const divisionsData = divisions.map((division) => ({
         ...division,
-        tournamentId, // Attach the tournamentId to each division
+        tournamentId: tournamentResponse.data.id,
       }));
-
-      console.log(divisionsData);
 
       const divisionResponse = await axios.post(
         "/api/divisions",
         divisionsData
       );
-      console.log("Divisions Created:", divisionResponse.data);
+      const newDivisions = divisionResponse.data.divisions;
+      setCreatedDivisions(newDivisions);
 
-      // Proceed to next step
+      // Initialize teams with division IDs
+      const initialTeams = newDivisions.flatMap(
+        (division: { id: string; name: string; numTeams: number }) =>
+          Array.from({ length: division.numTeams }, () => ({
+            name: "",
+            homeGround: "",
+            divisionId: division.id,
+          }))
+      );
+      setTeams(initialTeams);
+
       handleNext();
     } catch (error) {
-      console.error("Error creating tournament or divisions:", error);
+      console.error("Error creating divisions:", error);
     }
   };
+
   const handleTeamsSubmit = async () => {
-    if (!validateTeams()) return;
+    if (activeStep === 2 && !validateTeams()) return;
     try {
-      await axios.post("/api/teams", { teams });
-      alert("Tournament Setup Completed!");
+      const response = await axios.post("/api/teams", { teams });
+      console.log("Teams created:", response.data);
+      alert(`${response.data.count} teams created successfully!`);
     } catch (error) {
       console.error("Error creating teams:", error);
     }
   };
+  const handleSetNumDivisions = (value: number) => {
+    setErrors((prev) => ({
+      ...prev,
+      numDivisions: "",
+    }));
+    setNumDivisions(value);
+
+    // Reset or truncate divisions array
+    if (value < divisions.length) {
+      setDivisions(divisions.slice(0, value));
+    } else {
+      setDivisions([
+        ...divisions,
+        ...Array.from({ length: value - divisions.length }, () => ({
+          name: "",
+          numTeams: 0,
+        })),
+      ]);
+    }
+  };
+
+  console.log("errors", errors);
 
   return (
     <Container maxWidth="lg">
-      <Typography variant="h4" sx={{ mt: 5 }}>
+      <Typography
+        variant="h4"
+        sx={{
+          mt: 5,
+          background: "#d83030",
+          color: "white",
+          paddingY: 2,
+          paddingX: 3,
+          fontWeight: 600,
+          borderRadius: 2,
+          boxShadow: 2,
+        }}
+      >
         Create Fixture
       </Typography>
+
       <Stepper activeStep={activeStep} sx={{ mt: 3, mb: 5 }}>
         {steps.map((label) => (
           <Step key={label}>
@@ -141,13 +219,14 @@ export default function CreateFixture() {
         ))}
       </Stepper>
 
+      {/* Step 1: Tournament Details */}
       {activeStep === 0 && (
         <Box>
-          <Typography variant="h5">Tournament Details</Typography>
+          <Typography variant="h5" sx={{ marginY: 2 }}>
+            Tournament Details
+          </Typography>
           <Card
-            sx={{
-              marginY: "16px",
-            }}
+            sx={{ padding: 2, marginBottom: 2, boxShadow: 3, borderRadius: 2 }}
           >
             <CardContent>
               <TextField
@@ -157,7 +236,7 @@ export default function CreateFixture() {
                 value={tournament.name}
                 onChange={(e) => {
                   setTournament({ ...tournament, name: e.target.value });
-                  setErrors((prevErrors) => ({ ...prevErrors, name: "" }));
+                  setErrors((prev) => ({ ...prev, name: "" }));
                 }}
                 error={!!errors.name}
                 helperText={errors.name}
@@ -167,12 +246,12 @@ export default function CreateFixture() {
                   sx={{ width: "100%", mt: 2 }}
                   label="Start Date"
                   value={tournament.startDate}
-                  onChange={(newValue) => {
+                  onChange={(newValue) =>
                     setTournament({
                       ...tournament,
                       startDate: newValue || dayjs(),
-                    });
-                  }}
+                    })
+                  }
                 />
               </LocalizationProvider>
               <TextField
@@ -183,30 +262,33 @@ export default function CreateFixture() {
                 value={tournament.weeks}
                 onChange={(e) => {
                   setTournament({ ...tournament, weeks: e.target.value });
-                  setErrors((prevErrors) => ({ ...prevErrors, weeks: "" }));
+                  setErrors((prev) => ({ ...prev, weeks: "" }));
                 }}
                 error={!!errors.weeks}
                 helperText={errors.weeks}
               />
-              <Button
-                variant="contained"
-                sx={{ mt: 2 }}
-                onClick={handleTournamentSubmit}
-              >
-                Next
-              </Button>
+              <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
+                <Button
+                  variant="contained"
+                  sx={{ mt: 2, background: "#d83030" }}
+                  onClick={handleTournamentSubmit}
+                >
+                  Next
+                </Button>
+              </Box>
             </CardContent>
           </Card>
         </Box>
       )}
 
+      {/* Step 2: Divisions */}
       {activeStep === 1 && (
         <Box>
-          <Typography variant="h5">Add Divisions</Typography>
+          <Typography variant="h5" sx={{ marginY: 2 }}>
+            Add Divisions
+          </Typography>
           <Card
-            sx={{
-              marginY: "16px",
-            }}
+            sx={{ padding: 2, marginBottom: 2, boxShadow: 3, borderRadius: 2 }}
           >
             <CardContent>
               <TextField
@@ -215,20 +297,14 @@ export default function CreateFixture() {
                 fullWidth
                 margin="normal"
                 value={numDivisions}
-                onChange={(e) => setNumDivisions(+e.target.value)}
+                onChange={(e) => handleSetNumDivisions(+e.target.value)}
                 error={!!errors.numDivisions}
                 helperText={errors.numDivisions}
               />
               {Array.from({ length: numDivisions }).map((_, index) => (
                 <Box
                   key={index}
-                  sx={{
-                    display: "flex",
-                    justifyContent: "center",
-                    alignItems: "center",
-                    gap: 1,
-                    padding: "0px 16px",
-                  }}
+                  sx={{ display: "flex", gap: 1, padding: "0px 16px" }}
                 >
                   <TextField
                     variant="standard"
@@ -237,12 +313,16 @@ export default function CreateFixture() {
                     margin="normal"
                     value={divisions[index]?.name || ""}
                     onChange={(e) => {
-                      const updatedDivisions = [...divisions];
-                      updatedDivisions[index] = {
-                        ...updatedDivisions[index],
+                      setErrors((prev) => ({
+                        ...prev,
+                        [`div-${index}-name`]: "",
+                      }));
+                      const updated = [...divisions];
+                      updated[index] = {
+                        ...updated[index],
                         name: e.target.value,
                       };
-                      setDivisions(updatedDivisions);
+                      setDivisions(updated);
                     }}
                     error={!!errors[`div-${index}-name`]}
                     helperText={errors[`div-${index}-name`]}
@@ -255,93 +335,162 @@ export default function CreateFixture() {
                     margin="normal"
                     value={divisions[index]?.numTeams || ""}
                     onChange={(e) => {
-                      const updatedDivisions = [...divisions];
-                      updatedDivisions[index] = {
-                        ...updatedDivisions[index],
+                      setErrors((prev) => ({
+                        ...prev,
+                        [`div-${index}-teams`]: "",
+                      }));
+                      const updated = [...divisions];
+                      updated[index] = {
+                        ...updated[index],
                         numTeams: +e.target.value,
                       };
-                      setDivisions(updatedDivisions);
+                      setDivisions(updated);
                     }}
                     error={!!errors[`div-${index}-teams`]}
                     helperText={errors[`div-${index}-teams`]}
                   />
                 </Box>
               ))}
-
-              <Button
-                variant="contained"
-                sx={{ mt: 2 }}
-                onClick={handleDivisionSubmit}
-              >
-                Next
-              </Button>
-              <Button
-                variant="outlined"
-                sx={{ mt: 2, mr: 2 }}
-                onClick={handleBack}
-              >
-                Back
-              </Button>
+              <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+                <Button
+                  variant="outlined"
+                  sx={{ mt: 2, color: "#d83030", borderColor: "#d83030" }}
+                  onClick={handleBack}
+                >
+                  Back
+                </Button>
+                <Button
+                  variant="contained"
+                  sx={{ mt: 2, background: "#d83030" }}
+                  onClick={handleDivisionSubmit}
+                >
+                  Next
+                </Button>
+              </Box>
             </CardContent>
           </Card>
         </Box>
       )}
 
+      {/* Step 3: Teams & Home Ground */}
       {activeStep === 2 && (
         <Box>
-          <Typography variant="h5">Add Teams & Home Ground</Typography>
-          {divisions.map((division, divIndex) =>
-            Array.from({ length: division.numTeams }).map((_, teamIndex) => {
-              const index = divIndex * 10 + teamIndex;
-              return (
-                <div key={index}>
-                  <TextField
-                    label={`Team ${teamIndex + 1} Name`}
-                    fullWidth
-                    margin="normal"
-                    value={teams[index]?.name || ""}
-                    onChange={(e) => {
-                      const updatedTeams = [...teams];
-                      updatedTeams[index] = {
-                        ...updatedTeams[index],
-                        name: e.target.value,
-                        division: division.name,
-                      };
-                      setTeams(updatedTeams);
-                    }}
-                    error={!!errors[`team-${index}-name`]}
-                    helperText={errors[`team-${index}-name`]}
-                  />
-                  <TextField
-                    label="Home Ground"
-                    fullWidth
-                    margin="normal"
-                    value={teams[index]?.homeGround || ""}
-                    onChange={(e) => {
-                      const updatedTeams = [...teams];
-                      updatedTeams[index] = {
-                        ...updatedTeams[index],
-                        homeGround: e.target.value,
-                      };
-                      setTeams(updatedTeams);
-                    }}
-                    error={!!errors[`team-${index}-ground`]}
-                    helperText={errors[`team-${index}-ground`]}
-                  />
-                </div>
-              );
-            })
-          )}
-          <Button
-            variant="contained"
-            sx={{ mt: 2 }}
-            onClick={handleTeamsSubmit}
-          >
-            Finish
-          </Button>
-          <Button variant="outlined" sx={{ mt: 2, mr: 2 }} onClick={handleBack}>
-            Back
-          </Button>
+          <Typography variant="h5" sx={{ marginY: 2 }}>
+            Teams & Home Ground
+          </Typography>
+          {createdDivisions.map((division) => (
+            <Card
+              key={division.id}
+              sx={{
+                padding: 2,
+                marginBottom: 2,
+                boxShadow: 3,
+                borderRadius: 2,
+              }}
+            >
+              <Typography variant="h6" sx={{ fontWeight: "bold", mb: 1 }}>
+                {division.name}
+              </Typography>
+
+              {Array.from({ length: division.numTeams }).map((_, teamIndex) => {
+                
+                const team = teams.find(
+                  (t, idx) =>
+                    t.divisionId === division.id &&
+                    idx ===
+                      teams.findIndex((t) => t.divisionId === division.id) +
+                        teamIndex
+                );
+                console.log("teams",teams);
+                console.log("team",team);
+
+
+                return (
+                  <Box
+                    key={`${division.id}-${teamIndex}`}
+                    sx={{ display: "flex", gap: 1, padding: "0px 16px" }}
+                  >
+                    <TextField
+                      variant="standard"
+                      label={`Team ${teamIndex + 1}`}
+                      fullWidth
+                      margin="normal"
+                      value={team?.name || ""}
+                      onChange={(e) => {
+                        const updated = teams.map((t) =>
+                          t.divisionId === division.id &&
+                          teams.indexOf(t) ===
+                            teams.findIndex(
+                              (t) => t.divisionId === division.id
+                            ) +
+                              teamIndex
+                            ? { ...t, name: e.target.value }
+                            : t
+                        );
+                        setTeams(updated);
+                        setErrors((prev) => ({
+                          ...prev,
+                          [`team-${division.id}-${teamIndex}-name`]: "",
+                        }));
+                      }}
+                      error={!!errors[`team-${division.id}-${teamIndex}-name`]}
+                      helperText={
+                        errors[`team-${division.id}-${teamIndex}-name`]
+                      }
+                    />
+                    <TextField
+                      variant="standard"
+                      label="Ground name"
+                      fullWidth
+                      margin="normal"
+                      value={team?.homeGround || ""}
+                      onChange={(e) => {
+                        const updated = teams.map((t) =>
+                          t.divisionId === division.id &&
+                          teams.indexOf(t) ===
+                            teams.findIndex(
+                              (t) => t.divisionId === division.id
+                            ) +
+                              teamIndex
+                            ? { ...t, homeGround: e.target.value }
+                            : t
+                        );
+                        setTeams(updated);
+                        // Clear specific error
+                        setErrors((prev) => ({
+                          ...prev,
+                          [`team-${division.id}-${teamIndex}-ground`]: "",
+                        }));
+                      }}
+                      error={
+                        !!errors[`team-${division.id}-${teamIndex}-ground`]
+                      }
+                      helperText={
+                        errors[`team-${division.id}-${teamIndex}-ground`]
+                      }
+                    />
+                  </Box>
+                );
+              })}
+            </Card>
+          ))}
+
+          <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+            <Button
+              variant="outlined"
+              sx={{ mt: 2, color: "#d83030", borderColor: "#d83030" }}
+              onClick={handleBack}
+            >
+              Back
+            </Button>
+            <Button
+              variant="contained"
+              sx={{ mt: 2, background: "#d83030" }}
+              onClick={handleTeamsSubmit}
+            >
+              Finish
+            </Button>
+          </Box>
         </Box>
       )}
     </Container>

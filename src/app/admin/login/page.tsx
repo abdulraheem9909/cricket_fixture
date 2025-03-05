@@ -4,12 +4,12 @@ import { useRouter } from "next/navigation";
 import {
   Button,
   TextField,
-  Container,
   Typography,
   Box,
   CircularProgress,
   Card,
 } from "@mui/material";
+import Image from "next/image";
 
 export default function Login() {
   const router = useRouter();
@@ -19,7 +19,7 @@ export default function Login() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
 
   useEffect(() => {
-    const token = localStorage.getItem("token");
+    const token = localStorage?.getItem("token");
     if (token) {
       router.push("/admin/dashboard");
     } else {
@@ -49,7 +49,6 @@ export default function Login() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ username, password }),
     });
-    console.log("response", response);
 
     const data = await response.json();
     if (response.ok) {
@@ -61,65 +60,102 @@ export default function Login() {
   };
 
   return (
-    <Container
-      maxWidth="xs"
+    <Box
       sx={{
         display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
         height: "100vh",
       }}
     >
-      <Box sx={{ position: "absolute", top: 20, left: 20 }}>
-        {/* <img src="/logo.png" alt="Logo" style={{ width: 50 }} /> */}
-        logo
-      </Box>
-      <Typography variant="h4" sx={{ fontWeight: "bold", mb: 1 }}>
-        Admin Panel
-      </Typography>
-      <Typography variant="subtitle1" sx={{ mb: 3 }}>
-        Please enter email and password to login
-      </Typography>
-      <Card
+      {/* Left Side - Full Image */}
+      <Box
         sx={{
-          padding: 4,
-          boxShadow: 3,
-          borderRadius: 2,
-          width: "100%",
-          minWidth: "500px",
+          flex: 1,
+          display: { xs: "none", md: "block" }, // Hide on mobile
+          position: "relative",
+          height: "100vh",
         }}
       >
-        {error && <Typography color="error">{error}</Typography>}
-        <TextField
-          fullWidth
-          margin="normal"
-          label="Email"
-          value={username}
-          onChange={(e) => setUsername(e.target.value)}
-          autoComplete="off"
-          slotProps={{ input: { autoComplete: "new-email" } }}
+        <Image
+          src="/login.png"
+          alt="Background"
+          layout="fill"
+          objectFit="contain"
+          priority
+          style={{
+            background:
+              "linear-gradient(90deg, rgba(69,6,6,1) 0%, rgba(216,48,48,1) 61%, rgba(233,77,77,1) 82%)",
+            objectFit: "scale-down",
+          }}
         />
-        <TextField
-          fullWidth
-          margin="normal"
-          label="Password"
-          type="password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          autoComplete="off"
-          slotProps={{ input: { autoComplete: "new-password" } }}
+      </Box>
+      <Box sx={{ position: "fixed", top: 20, left: 20 }}>
+        {" "}
+        <Image
+          style={{ background: "white" }}
+          alt="logo"
+          src="/fixture.png"
+          width={200}
+          height={60}
         />
-        <Button
-          variant="contained"
-          color="primary"
-          fullWidth
-          onClick={handleLogin}
-          sx={{ mt: 2, py: 1.2 }}
+      </Box>
+
+      {/* Right Side - Login Form */}
+      <Box
+        sx={{
+          flex: 1,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: 4,
+        }}
+      >
+        <Typography variant="h3" sx={{ fontWeight: "bold", mb: 1 }}>
+          Match Fixture Panel
+        </Typography>
+        <Typography variant="subtitle1" sx={{ mb: 3 }}>
+          Please enter email and password to login
+        </Typography>
+
+        <Card
+          sx={{
+            padding: 4,
+            boxShadow: 3,
+            borderRadius: 2,
+            width: "100%",
+            maxWidth: "500px",
+          }}
         >
-          Login
-        </Button>
-      </Card>
-    </Container>
+          {error && <Typography color="error">{error}</Typography>}
+          <TextField
+            fullWidth
+            margin="normal"
+            label="Email"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            autoComplete="off"
+            slotProps={{ input: { autoComplete: "new-email" } }}
+          />
+          <TextField
+            fullWidth
+            margin="normal"
+            label="Password"
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            autoComplete="off"
+            slotProps={{ input: { autoComplete: "new-password" } }}
+          />
+          <Button
+            variant="contained"
+            fullWidth
+            onClick={handleLogin}
+            sx={{ mt: 2, py: 1.2, background: "#D83030" }}
+          >
+            Login
+          </Button>
+        </Card>
+      </Box>
+    </Box>
   );
 }

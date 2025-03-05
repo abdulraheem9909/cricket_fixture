@@ -7,7 +7,7 @@ export default function RedirectPage() {
   const router = useRouter();
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   useEffect(() => {
-    const token = localStorage.getItem("token");
+    const token = localStorage?.getItem("token");
     if (!token) {
       setIsAuthenticated(true);
       router.push("/admin/login");
