@@ -36,6 +36,23 @@ a {
 .css-3hpdci-MuiSvgIcon-root-MuiStepIcon-root.Mui-completed {
   color: #d83030 !important;
 }
+::-webkit-scrollbar {
+  width: 6px; /* Thin scrollbar */
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgb(255, 255, 255); /* Light red background */
+}
+
+::-webkit-scrollbar-thumb {
+  background: #d83030; /* Red scroller */
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: darkred; /* Darker red on hover */
+}
 @media (prefers-color-scheme: dark) {
   html {
     color-scheme: dark;

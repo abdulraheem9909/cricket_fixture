@@ -3,6 +3,7 @@ import { Poppins } from "next/font/google";
 import "./globals.css";
 import ThemeRegistry from "../components/ThemeRegistry"; // Import the ThemeRegistry
 
+
 // Configure Poppins
 const poppins = Poppins({
   weight: ["300", "400", "500", "600", "700"],

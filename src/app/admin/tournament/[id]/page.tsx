@@ -1,12 +1,10 @@
 "use client";
 import { useEffect, useState } from "react";
 import axios from "axios";
-import { CircularProgress, Alert, Typography } from "@mui/material";
+import { CircularProgress, Alert, Typography, Box } from "@mui/material";
 import React from "react";
 import { Tournament } from "@/lib/interfaces";
 import ScheduleTable from "../../../../components/scheduleTable";
-
-
 
 export default function TournamentPage({ params }: { params: { id: string } }) {
   // Properly unwrap the params promise
@@ -37,14 +35,41 @@ export default function TournamentPage({ params }: { params: { id: string } }) {
   if (!mounted) return null; // Prevent hydration mismatch
   if (loading) return <CircularProgress sx={{ mt: 4 }} />;
   if (error) return <Alert severity="error">{error}</Alert>;
-  if (!tournament) return <Alert severity="warning">Tournament not found</Alert>;
+  if (!tournament)
+    return <Alert severity="warning">Tournament not found</Alert>;
 
   return (
-    <div>
-      <Typography variant="h3" gutterBottom>
+    <Box>
+      <Box
+        sx={{
+          justifyContent: "center",
+          display: "flex",
+          width: "100%",
+          alignItems: "center",
+        }}
+      >
+        <Typography
+          variant="h4"
+          sx={{
+            margin: 4,
+            background: "#d83030",
+            color: "white",
+            paddingY: 2,
+            paddingX: 3,
+            fontWeight: 600,
+            borderRadius: 2,
+            boxShadow: 2,
+            width: "100%",
+          }}
+          maxWidth="lg"
+        >
+          Team Availablity
+        </Typography>
+      </Box>
+      <Typography variant="h5" gutterBottom sx={{ fontWeight: "bold" }}>
         {tournament.name} Schedule
       </Typography>
       <ScheduleTable tournament={tournament} />
-    </div>
+    </Box>
   );
 }

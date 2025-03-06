@@ -16,7 +16,7 @@ import axios from "axios";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import { MobileDatePicker } from "@mui/x-date-pickers/MobileDatePicker";
-import dayjs from "dayjs";
+import dayjs, { Dayjs } from "dayjs";
 import { useRouter } from "next/navigation";
 
 const steps = ["Tournament Details", "Divisions", "Teams & Home Ground"];
@@ -40,6 +40,8 @@ export default function CreateFixture() {
     { name: string; homeGround: string; divisionId: string }[]
   >([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const disableNonMondays = (date: Dayjs) => date.day() !== 1;
 
   const resetAllStates = () => {
     setTournament({
@@ -252,7 +254,6 @@ export default function CreateFixture() {
     }
   };
 
-
   return (
     <Container maxWidth="lg">
       <Typography
@@ -312,6 +313,7 @@ export default function CreateFixture() {
                       startDate: newValue || dayjs(),
                     })
                   }
+                  // shouldDisableDate={disableNonMondays}
                 />
               </LocalizationProvider>
               <TextField
