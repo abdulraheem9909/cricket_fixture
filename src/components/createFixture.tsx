@@ -17,10 +17,12 @@ import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import { MobileDatePicker } from "@mui/x-date-pickers/MobileDatePicker";
 import dayjs from "dayjs";
+import { useRouter } from "next/navigation";
 
 const steps = ["Tournament Details", "Divisions", "Teams & Home Ground"];
 
 export default function CreateFixture() {
+  const router = useRouter();
   const [activeStep, setActiveStep] = useState(0);
   const [tournament, setTournament] = useState({
     name: "",
@@ -29,7 +31,7 @@ export default function CreateFixture() {
   });
   const [numDivisions, setNumDivisions] = useState(0);
   const [divisions, setDivisions] = useState<
-    { name: string; numTeams: number }[]
+    { name: string; numTeams: number; id?: string }[]
   >([]);
   const [createdDivisions, setCreatedDivisions] = useState<
     { id: string; name: string; numTeams: number }[]
@@ -38,6 +40,25 @@ export default function CreateFixture() {
     { name: string; homeGround: string; divisionId: string }[]
   >([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const resetAllStates = () => {
+    setTournament({
+      name: "",
+      startDate: dayjs(),
+      weeks: "",
+    });
+
+    setNumDivisions(0);
+
+    // Reset divisions to an empty array of objects
+    setDivisions([{ name: "", numTeams: 0, id: "" }]);
+
+    // Reset createdDivisions to an empty array of objects
+    setCreatedDivisions([{ id: "", name: "", numTeams: 0 }]);
+
+    // Reset teams to an empty array of objects
+    setTeams([{ name: "", homeGround: "", divisionId: "" }]);
+  };
 
   // Validation functions
   const validateTournament = () => {
@@ -124,34 +145,26 @@ export default function CreateFixture() {
   const handleDivisionSubmit = async () => {
     if (activeStep === 1 && !validateDivisions()) return;
     try {
-      // Create tournament
-      const tournamentResponse = await axios.post("/api/tournaments", {
-        ...tournament,
-        weeks: +tournament.weeks,
-      });
-
-      // Create divisions
-      const divisionsData = divisions.map((division) => ({
-        ...division,
-        tournamentId: tournamentResponse.data.id,
+      const newDivisions = divisions.map((division, index) => ({
+        id: `temp-${index}`, // Temporary ID
+        name: division.name,
+        numTeams: division.numTeams,
       }));
-
-      const divisionResponse = await axios.post(
-        "/api/divisions",
-        divisionsData
-      );
-      const newDivisions = divisionResponse.data.divisions;
       setCreatedDivisions(newDivisions);
 
       // Initialize teams with division IDs
-      const initialTeams = newDivisions.flatMap(
-        (division: { id: string; name: string; numTeams: number }) =>
-          Array.from({ length: division.numTeams }, () => ({
-            name: "",
-            homeGround: "",
-            divisionId: division.id,
-          }))
-      );
+      const initialTeams =
+        teams.length > 0 &&
+        teams.some((team) => team.name || team.homeGround || team.divisionId)
+          ? teams // Preserve existing teams with valid data
+          : newDivisions.flatMap((division) =>
+              Array.from({ length: division.numTeams }, () => ({
+                name: "",
+                homeGround: "",
+                divisionId: division.id,
+              }))
+            );
+
       setTeams(initialTeams);
 
       handleNext();
@@ -163,11 +176,59 @@ export default function CreateFixture() {
   const handleTeamsSubmit = async () => {
     if (activeStep === 2 && !validateTeams()) return;
     try {
-      const response = await axios.post("/api/teams", { teams });
-      console.log("Teams created:", response.data);
-      alert(`${response.data.count} teams created successfully!`);
+      // Create tournament
+      const tournamentResponse = await axios.post("/api/tournaments", {
+        ...tournament,
+        weeks: +tournament.weeks,
+      });
+      const tournamentId = tournamentResponse.data.id;
+
+      // Create divisions with actual tournament ID
+      const divisionsData = createdDivisions.map(({ name, numTeams }) => ({
+        name,
+        numTeams,
+        tournamentId,
+      }));
+      const divisionResponse = await axios.post(
+        "/api/divisions",
+        divisionsData
+      );
+      const newDivisions = divisionResponse.data.divisions;
+      // Assign correct division IDs to teams
+      const updatedTeams = teams.map((team) => {
+        // Find the exact old division by ID
+        const oldDivision = createdDivisions.find(
+          (div) => div.id === team.divisionId
+        );
+
+        if (!oldDivision) return { ...team, divisionId: "" }; // Safety check
+
+        // Find the corresponding division in `newDivisions` with the same name AND unique logic (e.g., by index)
+        const matchingDivisions = newDivisions.filter(
+          (d: { name: string; numTeams: number; id: number }) =>
+            d.name === oldDivision.name
+        );
+
+        // Use index-based mapping to maintain uniqueness
+        const indexInOld = createdDivisions
+          .filter((div) => div.name === oldDivision.name)
+          .indexOf(oldDivision);
+        const matchedDivision =
+          matchingDivisions[indexInOld] || matchingDivisions[0]; // Fallback to first
+
+        return {
+          ...team,
+          divisionId: matchedDivision ? matchedDivision.id : "",
+        };
+      });
+
+      // Create teams
+      await axios.post("/api/teams", { teams: updatedTeams });
+      resetAllStates();
+      router.push(`/admin/tournament/${tournamentId}`);
     } catch (error) {
-      console.error("Error creating teams:", error);
+      console.error("Error submitting data:", error);
+      alert("An error occurred while submitting the data.");
     }
   };
   const handleSetNumDivisions = (value: number) => {
@@ -191,7 +252,6 @@ export default function CreateFixture() {
     }
   };
 
-  console.log("errors", errors);
 
   return (
     <Container maxWidth="lg">
@@ -322,6 +382,7 @@ export default function CreateFixture() {
                         ...updated[index],
                         name: e.target.value,
                       };
+                      setTeams([{ name: "", homeGround: "", divisionId: "" }]);
                       setDivisions(updated);
                     }}
                     error={!!errors[`div-${index}-name`]}
@@ -344,6 +405,7 @@ export default function CreateFixture() {
                         ...updated[index],
                         numTeams: +e.target.value,
                       };
+                      setTeams([{ name: "", homeGround: "", divisionId: "" }]);
                       setDivisions(updated);
                     }}
                     error={!!errors[`div-${index}-teams`]}
@@ -393,7 +455,6 @@ export default function CreateFixture() {
               </Typography>
 
               {Array.from({ length: division.numTeams }).map((_, teamIndex) => {
-                
                 const team = teams.find(
                   (t, idx) =>
                     t.divisionId === division.id &&
@@ -401,9 +462,6 @@ export default function CreateFixture() {
                       teams.findIndex((t) => t.divisionId === division.id) +
                         teamIndex
                 );
-                console.log("teams",teams);
-                console.log("team",team);
-
 
                 return (
                   <Box
