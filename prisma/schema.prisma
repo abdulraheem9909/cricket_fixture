@@ -16,42 +16,59 @@ datasource db {
 model User {
   id        Int      @id @default(autoincrement())
   username  String   @unique
-  password  String  
+  password  String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
 
 model Tournament {
-  id        Int        @id @default(autoincrement())
-  name      String
-  startDate DateTime
-  endDate   DateTime
-  weeks     Int
-  divisions Division[]
+  id                Int        @id @default(autoincrement())
+  name              String
+  startDate         DateTime
+  endDate           DateTime
+  weeks             Int
+  isCompleted       Boolean    @default(false)
+  tournamentOffWeek Int?
+  divisions         Division[]
 }
 
 model Division {
-  id          Int       @id @default(autoincrement())
-  name        String
-  tournament  Tournament @relation(fields: [tournamentId], references: [id])
+  id           Int        @id @default(autoincrement())
+  name         String
+  tournament   Tournament @relation(fields: [tournamentId], references: [id])
   tournamentId Int
-  numTeams Int
-  teams       Team[]
+  numTeams     Int
+  teams        Team[]
 }
 
 model Team {
-  id                 Int       @id @default(autoincrement())
-  name               String
-  homeGround         String
-  division           Division  @relation(fields: [divisionId], references: [id])
-  divisionId         Int
+  id                       Int                      @id @default(autoincrement())
+  name                     String
+  homeGround               String
+  division                 Division                 @relation(fields: [divisionId], references: [id])
+  divisionId               Int
   homeGroundAvailabilities HomeGroundAvailability[]
+  offRequests              OffRequest[]
 }
 
 model HomeGroundAvailability {
-  id     Int    @id @default(autoincrement())
-  week   Int
-  team   Team   @relation(fields: [teamId], references: [id])
-  teamId Int
+  id         Int      @id @default(autoincrement())
+  weekNumber Int // Week number
+  startDate  DateTime // Start date of the week
+  endDate    DateTime // End date of the week
+  team       Team     @relation(fields: [teamId], references: [id])
+  teamId     Int
+
+  @@unique([teamId, weekNumber])
 }
 
+model OffRequest {
+  id         Int      @id @default(autoincrement())
+  weekNumber Int // Week number
+  startDate  DateTime // Start date of the week
+  endDate    DateTime // End date of the week
+  team       Team     @relation(fields: [teamId], references: [id])
+  teamId     Int
+
+  @@unique([teamId, weekNumber])
+}

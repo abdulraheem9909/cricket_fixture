@@ -1,3 +1,4 @@
+import dayjs from "dayjs";
 export interface HomeGroundAvailability {
   id: number;
   week: number;
@@ -19,6 +20,11 @@ export interface Division {
   numTeams: number;
   teams: Team[];
 }
+export interface Week {
+  weekNumber: number;
+  start: dayjs.Dayjs;
+  end: dayjs.Dayjs;
+}
 
 export interface Tournament {
   id: number;
@@ -27,6 +33,14 @@ export interface Tournament {
   endDate: string; // ISO string format
   weeks: number;
   divisions: Division[];
+}
+
+export interface Availability {
+  id?: number;
+  teamId: number;
+  weekNumber: number;
+  startDate: string; // ISO string
+  endDate: string; // ISO string
 }
 
 export interface homeGroundAvailabilities {

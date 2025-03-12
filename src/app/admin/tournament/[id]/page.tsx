@@ -1,12 +1,18 @@
 "use client";
 import { useEffect, useState } from "react";
 import axios from "axios";
-import { CircularProgress, Alert, Typography, Box } from "@mui/material";
+import { Alert, Typography, Box, Button } from "@mui/material";
 import React from "react";
-import { Tournament } from "@/lib/interfaces";
+import { Availability, Tournament, Week } from "@/lib/interfaces";
 import ScheduleTable from "../../../../components/scheduleTable";
 
 export default function TournamentPage({ params }: { params: { id: string } }) {
+  const [availability, setAvailability] = useState<Availability[]>([]);
+  const [offRequests, setOffRequests] = useState<Availability[]>([]);
+  const [weeks, setWeeks] = useState<Week[]>([]);
+  const [tournamentOffWeek, setTournamentOffWeek] = useState<number | null>(
+    null
+  );
   // Properly unwrap the params promise
   const resolvedParams = React.use(params);
   const { id } = resolvedParams;
@@ -21,22 +27,38 @@ export default function TournamentPage({ params }: { params: { id: string } }) {
     const fetchData = async () => {
       try {
         const response = await axios.get(`/api/tournaments/${id}`);
-        setTournament(response.data);
+        console.log("response", response.data.offRequests);
+
+        setTournament(response.data.tournament);
+        setTournamentOffWeek(
+          response.data.tournament.tournamentOffWeek || null
+        );
+        setAvailability(response.data.availability);
+        setOffRequests(response.data.offRequests);
       } catch (err) {
-        setError("Failed to load tournament data");
-      } finally {
         setLoading(false);
+        setError("Failed to load tournament data");
       }
     };
 
     fetchData();
-  }, [id]); // Use the unwrapped id in dependencies
+  }, [id]);
 
   if (!mounted) return null; // Prevent hydration mismatch
-  if (loading) return <CircularProgress sx={{ mt: 4 }} />;
   if (error) return <Alert severity="error">{error}</Alert>;
-  if (!tournament)
-    return <Alert severity="warning">Tournament not found</Alert>;
+
+  const createFixture = async () => {
+    try {
+      await axios.post("/api/schedule", {
+        availability,
+        offRequests,
+        id: +id,
+        tournamentOffWeek,
+      });
+    } catch (error) {
+      console.log("error", error);
+    }
+  };
 
   return (
     <Box>
@@ -51,7 +73,6 @@ export default function TournamentPage({ params }: { params: { id: string } }) {
         <Typography
           variant="h4"
           sx={{
-            margin: 4,
             background: "#d83030",
             color: "white",
             paddingY: 2,
@@ -66,10 +87,45 @@ export default function TournamentPage({ params }: { params: { id: string } }) {
           Team Availablity
         </Typography>
       </Box>
-      <Typography variant="h5" gutterBottom sx={{ fontWeight: "bold" }}>
-        {tournament.name} Schedule
-      </Typography>
-      <ScheduleTable tournament={tournament} />
+      <Box
+        sx={{
+          justifyContent: "space-between",
+          display: "flex",
+          width: "100%",
+          alignItems: "center",
+          marginY: 2,
+        }}
+      >
+        {" "}
+        <Typography variant="h5" gutterBottom sx={{ fontWeight: "bold" }}>
+          {tournament?.name && `  ${tournament?.name} Schedule`}
+        </Typography>
+        <Button
+          variant="contained"
+          color="primary"
+          onClick={createFixture}
+          sx={{ marginX: 2, bgcolor: "#d83030" }}
+          disabled={
+            !availability.length || !offRequests.length || !tournamentOffWeek
+          }
+        >
+          Create Fixture
+        </Button>
+      </Box>
+
+      <ScheduleTable
+        tournament={tournament}
+        availability={availability}
+        setAvailability={setAvailability}
+        offRequests={offRequests}
+        setOffRequests={setOffRequests}
+        weeks={weeks}
+        setWeeks={setWeeks}
+        loading={loading}
+        setLoading={setLoading}
+        tournamentOffWeek={tournamentOffWeek}
+        setTournamentOffWeek={setTournamentOffWeek}
+      />
     </Box>
   );
 }
