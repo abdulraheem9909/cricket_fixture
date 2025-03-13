@@ -16,13 +16,20 @@ import axios from "axios";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import { MobileDatePicker } from "@mui/x-date-pickers/MobileDatePicker";
-import dayjs, { Dayjs } from "dayjs";
+import dayjs from "dayjs";
 import { useRouter } from "next/navigation";
+import Toaster from "./common/Alert";
+import BackdropLoader from "./common/BackdropLoader";
 
 const steps = ["Tournament Details", "Divisions", "Teams & Home Ground"];
 
 export default function CreateFixture() {
   const router = useRouter();
+  const [toast, setToast] = useState({
+    open: false,
+    message: "",
+    severity: "success" as "success" | "error",
+  });
   const [activeStep, setActiveStep] = useState(0);
   const [tournament, setTournament] = useState({
     name: "",
@@ -30,6 +37,7 @@ export default function CreateFixture() {
     weeks: "",
   });
   const [numDivisions, setNumDivisions] = useState(0);
+  const [loading, setLoading] = useState(false);
   const [divisions, setDivisions] = useState<
     { name: string; numTeams: number; id?: string }[]
   >([]);
@@ -40,8 +48,6 @@ export default function CreateFixture() {
     { name: string; homeGround: string; divisionId: string }[]
   >([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
-
-  const disableNonMondays = (date: Dayjs) => date.day() !== 1;
 
   const resetAllStates = () => {
     setTournament({
@@ -178,6 +184,7 @@ export default function CreateFixture() {
   const handleTeamsSubmit = async () => {
     if (activeStep === 2 && !validateTeams()) return;
     try {
+      setLoading(true);
       // Create tournament
       const tournamentResponse = await axios.post("/api/tournaments", {
         ...tournament,
@@ -226,11 +233,22 @@ export default function CreateFixture() {
 
       // Create teams
       await axios.post("/api/teams", { teams: updatedTeams });
-      resetAllStates();
       router.push(`/admin/tournament/${tournamentId}`);
+      setToast({
+        open: true,
+        message: "Tournament is created successful!",
+        severity: "success",
+      });
     } catch (error) {
-      console.error("Error submitting data:", error);
-      alert("An error occurred while submitting the data.");
+      setToast({
+        open: true,
+        message: "Something went wrong!",
+        severity: "error",
+      });
+    } finally {
+      resetAllStates();
+      setActiveStep(0);
+      setLoading(false);
     }
   };
   const handleSetNumDivisions = (value: number) => {
@@ -255,7 +273,7 @@ export default function CreateFixture() {
   };
 
   return (
-    <Container maxWidth="lg">
+    <Container maxWidth="lg" suppressHydrationWarning>
       <Typography
         variant="h4"
         sx={{
@@ -282,7 +300,7 @@ export default function CreateFixture() {
 
       {/* Step 1: Tournament Details */}
       {activeStep === 0 && (
-        <Box>
+        <Box suppressHydrationWarning>
           <Typography variant="h5" sx={{ marginY: 2 }}>
             Tournament Details
           </Typography>
@@ -345,7 +363,7 @@ export default function CreateFixture() {
 
       {/* Step 2: Divisions */}
       {activeStep === 1 && (
-        <Box>
+        <Box suppressHydrationWarning>
           <Typography variant="h5" sx={{ marginY: 2 }}>
             Add Divisions
           </Typography>
@@ -363,58 +381,67 @@ export default function CreateFixture() {
                 error={!!errors.numDivisions}
                 helperText={errors.numDivisions}
               />
-              {Array.from({ length: numDivisions }).map((_, index) => (
-                <Box
-                  key={index}
-                  sx={{ display: "flex", gap: 1, padding: "0px 16px" }}
-                >
-                  <TextField
-                    variant="standard"
-                    label={`Division ${index + 1} Name`}
-                    fullWidth
-                    margin="normal"
-                    value={divisions[index]?.name || ""}
-                    onChange={(e) => {
-                      setErrors((prev) => ({
-                        ...prev,
-                        [`div-${index}-name`]: "",
-                      }));
-                      const updated = [...divisions];
-                      updated[index] = {
-                        ...updated[index],
-                        name: e.target.value,
-                      };
-                      setTeams([{ name: "", homeGround: "", divisionId: "" }]);
-                      setDivisions(updated);
-                    }}
-                    error={!!errors[`div-${index}-name`]}
-                    helperText={errors[`div-${index}-name`]}
-                  />
-                  <TextField
-                    variant="standard"
-                    type="number"
-                    label="Number of Teams"
-                    fullWidth
-                    margin="normal"
-                    value={divisions[index]?.numTeams || ""}
-                    onChange={(e) => {
-                      setErrors((prev) => ({
-                        ...prev,
-                        [`div-${index}-teams`]: "",
-                      }));
-                      const updated = [...divisions];
-                      updated[index] = {
-                        ...updated[index],
-                        numTeams: +e.target.value,
-                      };
-                      setTeams([{ name: "", homeGround: "", divisionId: "" }]);
-                      setDivisions(updated);
-                    }}
-                    error={!!errors[`div-${index}-teams`]}
-                    helperText={errors[`div-${index}-teams`]}
-                  />
-                </Box>
-              ))}
+              <Box
+                sx={{ maxHeight: "450px", overflow: "auto" }}
+                suppressHydrationWarning
+              >
+                {Array.from({ length: numDivisions }).map((_, index) => (
+                  <Box
+                    key={index}
+                    sx={{ display: "flex", gap: 1, padding: "0px 16px" }}
+                  >
+                    <TextField
+                      variant="standard"
+                      label={`Division ${index + 1} Name`}
+                      fullWidth
+                      margin="normal"
+                      value={divisions[index]?.name || ""}
+                      onChange={(e) => {
+                        setErrors((prev) => ({
+                          ...prev,
+                          [`div-${index}-name`]: "",
+                        }));
+                        const updated = [...divisions];
+                        updated[index] = {
+                          ...updated[index],
+                          name: e.target.value,
+                        };
+                        setTeams([
+                          { name: "", homeGround: "", divisionId: "" },
+                        ]);
+                        setDivisions(updated);
+                      }}
+                      error={!!errors[`div-${index}-name`]}
+                      helperText={errors[`div-${index}-name`]}
+                    />
+                    <TextField
+                      variant="standard"
+                      type="number"
+                      label="Number of Teams"
+                      fullWidth
+                      margin="normal"
+                      value={divisions[index]?.numTeams || ""}
+                      onChange={(e) => {
+                        setErrors((prev) => ({
+                          ...prev,
+                          [`div-${index}-teams`]: "",
+                        }));
+                        const updated = [...divisions];
+                        updated[index] = {
+                          ...updated[index],
+                          numTeams: +e.target.value,
+                        };
+                        setTeams([
+                          { name: "", homeGround: "", divisionId: "" },
+                        ]);
+                        setDivisions(updated);
+                      }}
+                      error={!!errors[`div-${index}-teams`]}
+                      helperText={errors[`div-${index}-teams`]}
+                    />
+                  </Box>
+                ))}
+              </Box>
               <Box sx={{ display: "flex", justifyContent: "space-between" }}>
                 <Button
                   variant="outlined"
@@ -438,102 +465,111 @@ export default function CreateFixture() {
 
       {/* Step 3: Teams & Home Ground */}
       {activeStep === 2 && (
-        <Box>
+        <Box suppressHydrationWarning>
           <Typography variant="h5" sx={{ marginY: 2 }}>
             Teams & Home Ground
           </Typography>
-          {createdDivisions.map((division) => (
-            <Card
-              key={division.id}
-              sx={{
-                padding: 2,
-                marginBottom: 2,
-                boxShadow: 3,
-                borderRadius: 2,
-              }}
-            >
-              <Typography variant="h6" sx={{ fontWeight: "bold", mb: 1 }}>
-                {division.name}
-              </Typography>
+          <Box
+            sx={{ maxHeight: "600px", overflow: "auto", padding: 1 }}
+            suppressHydrationWarning
+          >
+            {createdDivisions.map((division) => (
+              <Card
+                key={division.id}
+                sx={{
+                  padding: 2,
+                  marginBottom: 2,
+                  boxShadow: 3,
+                  borderRadius: 2,
+                }}
+              >
+                <Typography variant="h6" sx={{ fontWeight: "bold", mb: 1 }}>
+                  {division.name}
+                </Typography>
 
-              {Array.from({ length: division.numTeams }).map((_, teamIndex) => {
-                const team = teams.find(
-                  (t, idx) =>
-                    t.divisionId === division.id &&
-                    idx ===
-                      teams.findIndex((t) => t.divisionId === division.id) +
-                        teamIndex
-                );
+                {Array.from({ length: division.numTeams }).map(
+                  (_, teamIndex) => {
+                    const team = teams.find(
+                      (t, idx) =>
+                        t.divisionId === division.id &&
+                        idx ===
+                          teams.findIndex((t) => t.divisionId === division.id) +
+                            teamIndex
+                    );
 
-                return (
-                  <Box
-                    key={`${division.id}-${teamIndex}`}
-                    sx={{ display: "flex", gap: 1, padding: "0px 16px" }}
-                  >
-                    <TextField
-                      variant="standard"
-                      label={`Team ${teamIndex + 1}`}
-                      fullWidth
-                      margin="normal"
-                      value={team?.name || ""}
-                      onChange={(e) => {
-                        const updated = teams.map((t) =>
-                          t.divisionId === division.id &&
-                          teams.indexOf(t) ===
-                            teams.findIndex(
-                              (t) => t.divisionId === division.id
-                            ) +
-                              teamIndex
-                            ? { ...t, name: e.target.value }
-                            : t
-                        );
-                        setTeams(updated);
-                        setErrors((prev) => ({
-                          ...prev,
-                          [`team-${division.id}-${teamIndex}-name`]: "",
-                        }));
-                      }}
-                      error={!!errors[`team-${division.id}-${teamIndex}-name`]}
-                      helperText={
-                        errors[`team-${division.id}-${teamIndex}-name`]
-                      }
-                    />
-                    <TextField
-                      variant="standard"
-                      label="Ground name"
-                      fullWidth
-                      margin="normal"
-                      value={team?.homeGround || ""}
-                      onChange={(e) => {
-                        const updated = teams.map((t) =>
-                          t.divisionId === division.id &&
-                          teams.indexOf(t) ===
-                            teams.findIndex(
-                              (t) => t.divisionId === division.id
-                            ) +
-                              teamIndex
-                            ? { ...t, homeGround: e.target.value }
-                            : t
-                        );
-                        setTeams(updated);
-                        // Clear specific error
-                        setErrors((prev) => ({
-                          ...prev,
-                          [`team-${division.id}-${teamIndex}-ground`]: "",
-                        }));
-                      }}
-                      error={
-                        !!errors[`team-${division.id}-${teamIndex}-ground`]
-                      }
-                      helperText={
-                        errors[`team-${division.id}-${teamIndex}-ground`]
-                      }
-                    />
-                  </Box>
-                );
-              })}
-            </Card>
-          ))}
+                    return (
+                      <Box
+                        key={`${division.id}-${teamIndex}`}
+                        sx={{ display: "flex", gap: 1, padding: "0px 16px" }}
+                      >
+                        <TextField
+                          variant="standard"
+                          label={`Team ${teamIndex + 1}`}
+                          fullWidth
+                          margin="normal"
+                          value={team?.name || ""}
+                          onChange={(e) => {
+                            const updated = teams.map((t) =>
+                              t.divisionId === division.id &&
+                              teams.indexOf(t) ===
+                                teams.findIndex(
+                                  (t) => t.divisionId === division.id
+                                ) +
+                                  teamIndex
+                                ? { ...t, name: e.target.value }
+                                : t
+                            );
+                            setTeams(updated);
+                            setErrors((prev) => ({
+                              ...prev,
+                              [`team-${division.id}-${teamIndex}-name`]: "",
+                            }));
+                          }}
+                          error={
+                            !!errors[`team-${division.id}-${teamIndex}-name`]
+                          }
+                          helperText={
+                            errors[`team-${division.id}-${teamIndex}-name`]
+                          }
+                        />
+                        <TextField
+                          variant="standard"
+                          label="Ground name"
+                          fullWidth
+                          margin="normal"
+                          value={team?.homeGround || ""}
+                          onChange={(e) => {
+                            const updated = teams.map((t) =>
+                              t.divisionId === division.id &&
+                              teams.indexOf(t) ===
+                                teams.findIndex(
+                                  (t) => t.divisionId === division.id
+                                ) +
+                                  teamIndex
+                                ? { ...t, homeGround: e.target.value }
+                                : t
+                            );
+                            setTeams(updated);
+                            // Clear specific error
+                            setErrors((prev) => ({
+                              ...prev,
+                              [`team-${division.id}-${teamIndex}-ground`]: "",
+                            }));
+                          }}
+                          error={
+                            !!errors[`team-${division.id}-${teamIndex}-ground`]
+                          }
+                          helperText={
+                            errors[`team-${division.id}-${teamIndex}-ground`]
+                          }
+                        />
+                      </Box>
+                    );
+                  }
+                )}
+              </Card>
+            ))}
+          </Box>
 
           <Box sx={{ display: "flex", justifyContent: "space-between" }}>
             <Button
@@ -548,11 +584,18 @@ export default function CreateFixture() {
               sx={{ mt: 2, background: "#d83030" }}
               onClick={handleTeamsSubmit}
             >
-              Finish
+              Select Dates
             </Button>
           </Box>
         </Box>
       )}
+      <Toaster
+        open={toast.open}
+        message={toast.message}
+        severity={toast.severity}
+        onClose={() => setToast({ ...toast, open: false })}
+      />
+      <BackdropLoader open={loading} />
     </Container>
   );
 }

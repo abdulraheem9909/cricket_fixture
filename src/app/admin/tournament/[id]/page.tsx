@@ -5,6 +5,7 @@ import { Alert, Typography, Box, Button } from "@mui/material";
 import React from "react";
 import { Availability, Tournament, Week } from "@/lib/interfaces";
 import ScheduleTable from "../../../../components/scheduleTable";
+import Toaster from "@/components/common/Alert";
 
 export default function TournamentPage({ params }: { params: { id: string } }) {
   const [availability, setAvailability] = useState<Availability[]>([]);
@@ -21,6 +22,11 @@ export default function TournamentPage({ params }: { params: { id: string } }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [mounted, setMounted] = useState(false);
+  const [toast, setToast] = useState({
+    open: false,
+    message: "",
+    severity: "success" as "success" | "error",
+  });
 
   useEffect(() => {
     setMounted(true);
@@ -49,14 +55,26 @@ export default function TournamentPage({ params }: { params: { id: string } }) {
 
   const createFixture = async () => {
     try {
+      setLoading(true);
       await axios.post("/api/schedule", {
         availability,
         offRequests,
         id: +id,
         tournamentOffWeek,
       });
+      setToast({
+        open: true,
+        message: "Fixture created successfully!",
+        severity: "success",
+      });
     } catch (error) {
-      console.log("error", error);
+      setToast({
+        open: true,
+        message: "Something went wrong!",
+        severity: "error",
+      });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -125,6 +143,13 @@ export default function TournamentPage({ params }: { params: { id: string } }) {
         setLoading={setLoading}
         tournamentOffWeek={tournamentOffWeek}
         setTournamentOffWeek={setTournamentOffWeek}
+      />
+
+      <Toaster
+        open={toast.open}
+        message={toast.message}
+        severity={toast.severity}
+        onClose={() => setToast({ ...toast, open: false })}
       />
     </Box>
   );

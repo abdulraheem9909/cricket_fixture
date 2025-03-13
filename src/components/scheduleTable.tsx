@@ -15,7 +15,6 @@ import {
   FormControl,
   InputLabel,
   Alert,
-  CircularProgress,
 } from "@mui/material";
 
 import dayjs from "dayjs";
@@ -23,6 +22,7 @@ import utc from "dayjs/plugin/utc";
 import isoWeek from "dayjs/plugin/isoWeek";
 import weekOfYear from "dayjs/plugin/weekOfYear";
 import { Availability, Tournament, Week } from "@/lib/interfaces";
+import BackdropLoader from "./common/BackdropLoader";
 
 dayjs.extend(weekOfYear);
 dayjs.extend(utc);
@@ -319,16 +319,7 @@ export default function ScheduleTable({
   return (
     <>
       {loading ? (
-        <Box
-          sx={{
-            display: "flex",
-            justifyContent: "center",
-            alignItems: "center",
-            height: "100vh",
-          }}
-        >
-          <CircularProgress />
-        </Box>
+        <BackdropLoader open={true} />
       ) : (
         <>
           {tournament ? (
